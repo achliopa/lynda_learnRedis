@@ -141,3 +141,118 @@ and enter the master server password
 * with the authentication enabled we cannot use the cli without setting password. we need to start the cli with authentication passin the password: `redis-cli -a <mypassword>`
 * to be able to get/set data fit our redis store from node server with ioredis we need to set our authentication there as well.
 * we do this in the Redis instantiation by passing a config object in the constructor with the password: property and value our password string `const redis = new Redis({password: 'rootroot'});`
+
+## Section 3 - Datasets in Depth
+
+### Exploration of Strings
+
+* we see a number of operations
+* we can set numbers `set address 453`
+* we can increase a number by one with a command: `incr address` => 454
+* we can increase by a specific number: incrby address 1000 => 1454
+* we can decrease by one or by a number: decr address => 1453, decrby address 500 => 953
+* we can use complex strings as values putting them in doublequotes: set country "South Africa"
+* we can get a value and then set it in one command: getset firstName Steph. this command returns the previous value and then sets the new one.
+* we can set multiple key -value pairs: `127.0.0.1:6379> mset street seaward city ventura country usa zip "92101-2878292"`
+* we can get multiple values with mget: `mget street city country zip`
+* we can check the existence of a key with: `exists street`. if it exists we get 1 otherwise 0
+* we can set a timeout to erase a key-vlaue pair. with expire zip 30. after 30 secs the zip key-value pair will cease to exist.
+* we can set a value and set expiration timeout in 1 command. `set zip "4324324" ex 10`
+
+### Strings in Action
+
+* we will use ioredis to issue commands.
+* we first check setting the expiration of a value
+
+```
+redis.set('name', 'thanasis', 'EX', 5);
+redis.get('name', (err, result) => {
+	console.log(result);
+
+});
+setTimeout(()=> {
+	redis.get('name', (err, result) => {
+		console.log(result);
+
+	});
+},6000);
+```
+
+* by adding 'EX' and the value in ms we set the expiration timeout. we test it adding a settimeout callback
+* we can incrby a value `redis.incrby('address',300);`
+* we can mget and mset in ioredis
+
+```
+redis.mset('street', 'Awesome', 'city', 'San Francisco');
+redis.mget('street','city',(err,result) => {
+	console.log(result);
+});
+```
+
+### The hash data structure
+
+* hashes are like javascript objects, we can add in them as many key value pairs as we want. [hash commands](https://redis.io/commands#hash)
+* hashes are identified and called by a key or id.
+* we can set multiple key/value pairs in a hash with hmset: `hmset user:345 firstName Tracey lastName Larvent street awesome city awesomer`
+* we can get all key/value pairs of a hash with hgetall: `hgetall user:345`
+* we can get a specific value with hget the id and the key: `hget user:345 city`
+* we can get multiple values from a hashwith hmget and the keys: `hmget user:345 firstName city street`
+* we can check existence of a key value in a hash with hexists: ` hexists user:345 zip`
+* we can add keyvalues in an existing hash with hmset
+* we can increase a numerical value in a hash with hincrby: `hincrby user:345 address 367`
+
+### Hashes in Action
+
+* we put all strings code in a separate file and import it.
+* we add a hashes js file and put  our code there. 
+
+```
+	redis.hmset('user:450','firstName','Jeremy','lastName','Irons');
+	redis.hgetall('user:450', (err,result) => {
+		console.log(result);
+	});
+```
+
+* hashes methods in ioredis return js objects
+
+* we incr with hincrby
+
+```
+redis.hmset('user:450', 'address', 234);
+redis.hincrby('user:450', 'address', 100);
+```
+
+### Exploration of Lists
+
+* we push  values in a list with rpush `rpush groceries cherries apples berries`
+* we get list values with lrange and the first ans last index `lrange groceries 0 -1` returns 1) "cherries" 2) "apples" 3) "berries" . -1 subtracts zero from end
+* -2 subtracts one value from end and so on . 1 instead of 0 excludes one  value from start. 2 excludes 2 and so on `lrange groceries 0 -4` returns empty
+* lpush adds a value in the left
+* lpop returns one first value from left (start) and deletes it
+* rpop returns one first value from rigth (end) and deletes it
+* ltrim  trims the list keeping only the range specified `ltrim groceries 0 4` keeps only values with index 0 to 4 (5 values)
+
+### Lists in Action
+
+* we run our commands with ioredis in js
+
+```
+	redis.ltrim('planets',0, 0);
+
+	redis.rpush('planets', 'venus', 'earth', 'mars', 'jupiter');
+
+	redis.rpush('planets', 'saturn');
+
+	redis.lpush('planets', 'mercury');
+
+	redis.rpop('planets');
+
+	redis.lrange('planets', 0, -1, (error,result) => {
+		console.log(result);
+	})
+```
+
+### Challenge: Implement Ioredis
+
+* redis sets are collections of unique strings that are not in order
+* where do we use sets? in a place where we nedd to add unique data that does not need to be ordered e.g tags on a block
