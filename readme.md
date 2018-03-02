@@ -255,4 +255,98 @@ redis.hincrby('user:450', 'address', 100);
 ### Challenge: Implement Ioredis
 
 * redis sets are collections of unique strings that are not in order
-* where do we use sets? in a place where we nedd to add unique data that does not need to be ordered e.g tags on a block
+* where do we use sets? in a place where we nedd to add unique data that does not need to be ordered e.g tags on a block.it needs to be created once and dont need to be in order, while in a social feed the data are ordered
+* to add memebers in a set we use sadd where we set the key and the members of the set. In the example `sadd tags react "react native" graphQL javascript` tags is the key and after it are the memebers of the set
+* we get the members of a set with smembers and the key. eg `smember tags`
+* we can use sadd multiple times to add more memebers to our set
+* to check for the existence of a specific member in our set we use sismember with the key and the member we want to check. e.g `sismember tags redux` => 0. it returns 1 if true and 0 if false
+* we can use sublists to our sets using the key:sublist notation . we add to the sublist with sadd `sadd tags:react "react router" redux "react-redux"`
+* note that react already existed as a 1st level member of the set. to gets the nested members we use "smembers tags:react"
+* we use union store to do the following: we have an existing category and we want to add a new category passing the contents of the former category into it. we do this with union store. we do this with sunionstore command in cli nameing the new subcategory and the existing one. `sunionstore tags:"react native" tags:react`
+* to remove the last item from the set we use spop and its set key. eg `spop tags:"react native"`. the command rteturns the last member and removes it.
+* to count the members in a category or subcategory we use scard and the key of the category or subcategory eg `scard tags:"reactburning man
+"
+
+### Solution implement Ioredis
+
+* we implement the set commands in ioredis
+* test commands
+
+```
+	redis.sadd("udemy", "python", "javascript","data analysis","sass");
+	redis.smembers('udemy',(error,result) => {
+		console.log(result);
+	});
+	redis.spop('udemy', (error,result) => {
+		console.log(result);
+	});
+	redis.sadd('udemy:python', 'master python', 'python anaconda');
+	redis.smembers('udemy:python',(error,result) => {
+		console.log(result);
+	});
+	redis.sunionstore('udemy:python', 'udemy:"data analysis"');
+	redis.smembers('udemy:"data analysis"',(error,result) => {
+		console.log(result);
+	});
+```
+
+### Challenge: Explore Sorted Sets
+
+* sorted sets are like normal sets but with an order defined by the interface or the user.
+* we use zadd to add them using the set key and the sets of score and value. score can be used for sorting in an index like fashion. e.g `zadd rocket 1969 "apollo 11" 1998 "Deep space 1" 2008 "Falcon 1"`
+* we get the contets by setting the range with zrange. e.g `zrabge rocket 0 -1` returns all and so on.
+* if we want the scores in our results we psecify withscores eg. `zrange rocket 0 -1 withscores`
+* to reverse the order of the results we use zrevrange instead of zrange
+* to return results up to a specific score we use zrangebyscore -inf score. eg `zrangebyscore rocket -inf 1998 withscores`
+* if we want to know the order or rank of a set member we use zrank e.g `zrank rocket "Deep space 1"`. rank is 1 based
+* IF WE USE NO SCORES REDIS SORTS A SORTED LIST ALPHABETICALLY
+
+### Solution: Explore sorted sets in ioredis
+
+* we do the boiler plate and add our ioredis methods/commands in sorted.js
+* our code
+
+```
+	 // set the original sorted sets
+	 redis.zadd('rockets', 1966, "Luna 9",1998, "Deep Space 1",1957, "Sputnik", 1969, "Apollo 11", 2008, "Falcon 1");
+	 // print to console sorted set
+	 redis.zrangebyscore('rockets','-inf', 2000, 'withscores', (error, result) => {
+	 	console.log(result);
+```
+
+* in ioredis we pass score of 0 to triggewr autoscore
+
+## Section 4 - Advanced Concepts
+
+### Security with Redis
+
+* best way to protect our data is to do it in app level. 
+* use access control lists (ACLs)
+* add password to main instance of redis (we did that in redis.conf requirepass)
+* firewall redis port and ip from unrestricted access
+* do not add multiple binding ip addresses to bind to the redis server
+* if we dont add password we will be able to access data only by the same server not from another ip
+* protected-mode always on
+
+### Publish and subscribe with redis
+
+* publish ans subscribe commands are very useful for messaging systems
+* or instant data systems (real time)
+* pub/sub is realtime and happens through channels 
+* a client(s) subscribes in a channel with subscribe <channelname> eg `subscribe messages news`
+* a client(s)  can publish on the channel with publish <channelname> "message" e.g `publish news "hello"` this commands returns the number of subsribed clients that got the message. also the subsribed clients get the message.
+
+```
+1) "message"
+2) "news"
+3) "hello"
+
+```
+
+### Redis cluster and Sentinel
+
+* Sentinel monitors master and slave instances and handles automatic failover if any of them goes down
+* we need atleast 3 instances to use sentinel a) master and 2 slaves
+* sentinel is great for increased data protection while sacrificing on speed
+* perfect for small implementations with high availability concerns
+* redis cluster is a clustering solution. we split our data across several servers and provides failover, auto management and replication as part of the solution, offers high availability and high performance. if we need auto failover with out cluser we go to sentinel
